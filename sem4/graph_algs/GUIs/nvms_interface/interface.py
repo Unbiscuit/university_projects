@@ -62,6 +62,7 @@ class Ui_MainWindow(object):
         sizePolicy.setHeightForWidth(self.tour_widget.sizePolicy().hasHeightForWidth())
         self.tour_widget.setSizePolicy(sizePolicy)
         self.tour_widget.setMinimumSize(QtCore.QSize(0, 0))
+        self.tour_widget.setMaximumSize(QtCore.QSize(16777215, 16777215))
         self.tour_widget.setObjectName("tour_widget")
         self.verticalLayout.addWidget(self.tour_widget)
         self.horizontalLayout.addLayout(self.verticalLayout)

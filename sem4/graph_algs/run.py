@@ -5,13 +5,14 @@ from PyQt6.QtCore import Qt
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg, NavigationToolbar2QT
 import matplotlib.pyplot as plt
-from netgraph import EditableGraph, Graph
+from netgraph import EditableGraph, Graph, InteractiveGraph
 from GUIs.nvms_interface.interface import Ui_MainWindow
 import numpy as np
 from scipy.spatial import distance
-from Algs.all_algs import NVM
+from Algs.all_algs import NVM, network_graph
 import converters
 from mpl_toolkits.axisartist.axislines import Subplot
+import networkx as nx
 
 np.random.seed(300)
 START_DIRECTIONS = [(0, 1), (0, 2), (0, 3), (0, 4), (1, 0), (1, 2), (1, 3), (1, 4), (2, 0), (2, 1), (2, 3), (2, 4), (3, 0), (3, 1), (3, 2), (3, 4), (4, 0), (4, 1), (4, 2), (4, 3)]
@@ -22,7 +23,7 @@ class MplCanvas(FigureCanvasQTAgg):
         self.setParent(parent)
         self.ax = self.figure.add_subplot(111)
         self.plot_instance = EditableGraph(START_DIRECTIONS, 
-                                    arrows=True, ax=self.ax, node_labels=True, edge_labels=True)
+                                    arrows=True, ax=self.ax)
         self.setFocusPolicy(Qt.FocusPolicy.ClickFocus)
 
  
@@ -42,6 +43,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         self.fig2 = plt.figure(figsize=(8, 8), dpi=80)
         ax = Subplot(self.fig2, 111)
+        ax.axis('off')
         self.fig2.add_subplot(ax)
         self.canvas2 = FigureCanvasQTAgg(self.fig2)
         self.toolbar2 = NavigationToolbar2QT(self.canvas2, self)
@@ -57,20 +59,23 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     def get_tour(self):
         self.remove_widgets()
         widget = QtWidgets.QWidget()
-        widget.setSizePolicy(QtWidgets.QSizePolicy.setHorizontalPolicy(QtWidgets.QSizePolicy.Expanding), QtWidgets.QSizePolicy.setVerticalPolicy(QtWidgets.QSizePolicy.Expanding))
+        widget.setSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Expanding)
         self.verticalLayout.addWidget(widget)
-        positions = converters.get_positions(self.canvas1.plot_instance.node_label_artists)
+        positions = converters.get_positions(self.canvas1.plot_instance.node_label_artists())
         directions =  converters.get_directions(self.canvas1.plot_instance.edge_label_artists)
         adj_mat = converters.get_adj_mat(positions, directions)
-        nvm = NVM(adj_mat)
+        nvm = NVM(adj_mat.copy())
         tour = nvm.gamilton_tour_with_nvm()
         ax = self.fig2.axes[0]
-        graph = Graph(tour, arrows=True, ax=ax, node_labels=True, edge_labels=True)
+        graph = Graph(tour, arrows=True, ax=ax)
         self.fig2.canvas.draw()
         canvas = FigureCanvasQTAgg(self.fig2)
         toolbar = NavigationToolbar2QT(canvas, self)
         self.verticalLayout.addWidget(toolbar)
         self.verticalLayout.addWidget(canvas)
+
+        obj = network_graph(adj_mat)
+        self.lineEdit.setText(f'Длина тура = {obj.get_distance(tour)}')
 
 
 

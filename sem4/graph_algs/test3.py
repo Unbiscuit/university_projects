@@ -1,54 +1,80 @@
 import sys
-
-from PyQt6 import QtWidgets
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QApplication
-from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QKeyEvent
-
-import matplotlib
-
-matplotlib.use("Qt5Agg")
-
-
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg, NavigationToolbar2QT
-from matplotlib.figure import Figure
-
-from netgraph import EditableGraph
-
 import networkx as nx
+import pyqtgraph as pg
+from PyQt6.QtGui import *
+from PyQt6.QtWidgets import *
 
+class NetworkGraph(QMainWindow):
+    def __init__(self):
+        super().__init__()
 
-class MplCanvas(FigureCanvasQTAgg):
-    def __init__(self, parent=None, width=5, height=4, dpi=100):
-        super(MplCanvas, self).__init__(Figure(figsize=(width, height), dpi=dpi))
-        self.setParent(parent)
-        self.ax = self.figure.add_subplot(111)
-        graph = nx.house_x_graph()
-        self.plot_instance = EditableGraph(graph, ax=self.ax)
-        self.setFocusPolicy(Qt.FocusPolicy.ClickFocus)
+        self.setWindowTitle("Network Graph")
+        self.setGeometry(100, 100, 800, 600)
 
+        # Create a widget for the graph
+        self.graph_widget = pg.GraphicsLayoutWidget()
+        self.setCentralWidget(self.graph_widget)
 
-class MainWindow(QtWidgets.QMainWindow):
-    def __init__(self, *args, **kwargs):
-        super(MainWindow, self).__init__(*args, **kwargs)
+        # Create a toolbar for adding, deleting, and moving nodes
+        self.toolbar = self.addToolBar("Graph Toolbar")
 
-        self.canvas = MplCanvas(self, width=5, height=4, dpi=100)
-        self.toolbar = NavigationToolbar2QT(self.canvas, self)
+        self.add_node_action = QAction("Add Node", self)
+        self.add_node_action.triggered.connect(self.add_node)
 
-        widget = QtWidgets.QWidget()
-        self.setCentralWidget(widget)
+        self.delete_node_action = QAction("Delete Node", self)
+        self.delete_node_action.triggered.connect(self.delete_node)
 
-        layout = QtWidgets.QVBoxLayout(widget)
-        layout.addWidget(self.toolbar)
-        layout.addWidget(self.canvas)
+        self.move_node_action = QAction("Move Node", self)
+        self.move_node_action.setCheckable(True)
+        self.move_node_action.toggled.connect(self.move_node)
 
+        self.toolbar.addAction(self.add_node_action)
+        self.toolbar.addAction(self.delete_node_action)
+        self.toolbar.addAction(self.move_node_action)
 
-def main():
-    app = QtWidgets.QApplication(sys.argv)
-    w = MainWindow()
-    w.show()
-    app.exec()
+        # Create a networkx graph
+        self.graph = nx.Graph()
 
+        # Add some nodes and edges to the graph
+        self.graph.add_nodes_from([1, 2, 3, 4])
+        self.graph.add_edges_from([(1, 2), (2, 3), (3, 4), (4, 1)])
+
+        # Create a pyqtgraph PlotItem for drawing the graph
+        self.plot_item = self.graph_widget.addPlot()
+        self.plot_item.setAspectLocked(True)
+        self.plot_item.showGrid(x=True, y=True)
+
+        # Create a pyqtgraph GraphItem from the networkx graph
+        self.graph_item = pg.GraphItem()
+        self.plot_item.addItem(self.graph_item)
+
+        pos = nx.spring_layout(self.graph)
+        self.graph_item.setData(pos=pos, adj=self.graph.adjacency())
+
+        # Show the main window
+        self.show()
+
+    def add_node(self):
+        node_id, ok = QInputDialog.getInt(self, "Add Node", "Enter the node ID:")
+        if ok:
+            self.graph.add_node(node_id)
+            pos = nx.spring_layout(self.graph)
+            self.graph_item.setData(pos=pos, adj=self.graph.adjacency())
+
+    def delete_node(self):
+        node_id, ok = QInputDialog.getInt(self, "Delete Node", "Enter the node ID:")
+        if ok:
+            self.graph.remove_node(node_id)
+            pos = nx.spring_layout(self.graph)
+            self.graph_item.setData(pos=pos, adj=self.graph.adjacency())
+
+    def move_node(self, checked):
+        if checked:
+            self.graph_item.setMovable(True)
+        else:
+            self.graph_item.setMovable(False)
 
 if __name__ == "__main__":
-    main()
+    app = QApplication(sys.argv)
+    graph = NetworkGraph()
+    sys.exit(app.exec())

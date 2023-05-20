@@ -18,13 +18,14 @@ class NVM(network_graph):
         super().__init__(adj_mat)
 
     def gamilton_tour_with_nvm(self, first_node = None, first_dir = None):
+
         visited = []
         gamilton_tour = []
         node = first_node or 0
         while node not in visited:
             current_row = self.adj_mat[node]
             min_ind = first_dir or np.argmin(current_row)
-            if min_ind in visited:
+            if min_ind in visited and np.sum(current_row[:min_ind:]) % 11 != 0:
                 current_row[min_ind] = 100
             else:
                 visited.append(node)

@@ -1,80 +1,99 @@
 import sys
+from PyQt6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.figure import Figure
+import matplotlib.pyplot as plt
 import networkx as nx
-import pyqtgraph as pg
-from PyQt6.QtGui import *
-from PyQt6.QtWidgets import *
 
-class NetworkGraph(QMainWindow):
+class NetworkGraphWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-
         self.setWindowTitle("Network Graph")
-        self.setGeometry(100, 100, 800, 600)
+        self.resize(800, 600)
 
-        # Create a widget for the graph
-        self.graph_widget = pg.GraphicsLayoutWidget()
-        self.setCentralWidget(self.graph_widget)
-
-        # Create a toolbar for adding, deleting, and moving nodes
-        self.toolbar = self.addToolBar("Graph Toolbar")
-
-        self.add_node_action = QAction("Add Node", self)
-        self.add_node_action.triggered.connect(self.add_node)
-
-        self.delete_node_action = QAction("Delete Node", self)
-        self.delete_node_action.triggered.connect(self.delete_node)
-
-        self.move_node_action = QAction("Move Node", self)
-        self.move_node_action.setCheckable(True)
-        self.move_node_action.toggled.connect(self.move_node)
-
-        self.toolbar.addAction(self.add_node_action)
-        self.toolbar.addAction(self.delete_node_action)
-        self.toolbar.addAction(self.move_node_action)
-
-        # Create a networkx graph
+        # Create an empty graph
         self.graph = nx.Graph()
 
-        # Add some nodes and edges to the graph
-        self.graph.add_nodes_from([1, 2, 3, 4])
-        self.graph.add_edges_from([(1, 2), (2, 3), (3, 4), (4, 1)])
+        # Add initial nodes
+        initial_nodes = [
+            (1, "Node 1", 0, 0),
+            (2, "Node 2", 1, 1),
+            (3, "Node 3", 2, 0)
+        ]
+        for node in initial_nodes:
+            node_id, node_label, x, y = node
+            self.graph.add_node(node_id, label=node_label, x=x, y=y)
 
-        # Create a pyqtgraph PlotItem for drawing the graph
-        self.plot_item = self.graph_widget.addPlot()
-        self.plot_item.setAspectLocked(True)
-        self.plot_item.showGrid(x=True, y=True)
+        # Create the Matplotlib figure and canvas
+        self.figure = Figure()
+        self.canvas = FigureCanvas(self.figure)
 
-        # Create a pyqtgraph GraphItem from the networkx graph
-        self.graph_item = pg.GraphItem()
-        self.plot_item.addItem(self.graph_item)
+        # Create a layout and add the canvas to it
+        layout = QVBoxLayout()
+        layout.addWidget(self.canvas)
 
-        pos = nx.spring_layout(self.graph)
-        self.graph_item.setData(pos=pos, adj=self.graph.adjacency())
+        # Create a central widget and set the layout
+        central_widget = QWidget(self)
+        central_widget.setLayout(layout)
+        self.setCentralWidget(central_widget)
 
-        # Show the main window
-        self.show()
+        # Create a context menu for adding edges
+        self.context_menu = self.createContextMenu()
 
-    def add_node(self):
-        node_id, ok = QInputDialog.getInt(self, "Add Node", "Enter the node ID:")
-        if ok:
-            self.graph.add_node(node_id)
-            pos = nx.spring_layout(self.graph)
-            self.graph_item.setData(pos=pos, adj=self.graph.adjacency())
+        # Register the mouse click events
+        self.canvas.mpl_connect('button_press_event', self.add_node)
+        self.canvas.mpl_connect('button_press_event', self.show_context_menu)
 
-    def delete_node(self):
-        node_id, ok = QInputDialog.getInt(self, "Delete Node", "Enter the node ID:")
-        if ok:
-            self.graph.remove_node(node_id)
-            pos = nx.spring_layout(self.graph)
-            self.graph_item.setData(pos=pos, adj=self.graph.adjacency())
+        # Draw the initial graph
+        self.draw_graph()
 
-    def move_node(self, checked):
-        if checked:
-            self.graph_item.setMovable(True)
-        else:
-            self.graph_item.setMovable(False)
+    def createContextMenu(self):
+        context_menu = self.canvas.register_context_menu()
+
+        # Add an action for adding edges
+        add_edge_action = context_menu.addAction("Add Edge")
+        add_edge_action.triggered.connect(self.add_edge)
+
+        return context_menu
+
+    def add_node(self, event):
+        if event.button == 1:  # Left mouse button
+            x, y = event.xdata, event.ydata
+            node_id = len(self.graph.nodes) + 1
+            node_label = f"Node {node_id}"
+            self.graph.add_node(node_id, label=node_label, x=x, y=y)
+            self.draw_graph()
+
+    def add_edge(self):
+        selected_nodes = self.context_menu.selected_nodes
+        if len(selected_nodes) == 2:
+            source, target = selected_nodes
+            self.graph.add_edge(source, target)
+            self.draw_graph()
+
+    def draw_graph(self):
+        self.figure.clear()
+        pos = {node: (data['x'], data['y']) for node, data in self.graph.nodes.items()}
+        nx.draw(self.graph, pos, with_labels=True, node_color='lightblue', ax=self.figure.gca())
+        nx.draw_networkx_edges(self.graph, pos, edge_color='gray', ax=self.figure.gca())
+        self.canvas.draw()
+
+    def show_context_menu(self, event):
+        if event.button == 3:  # Right mouse button
+            x, y = event.xdata, event.ydata
+            selected_node = None
+            for node, data in self.graph.nodes.items():
+                node_x, node_y = data['x'], data['y']
+                if abs(x - node_x) < 0.05 and abs(y - node_y) < 0.05:
+                    selected_node = node
+                    break
+            self.context_menu.selected_nodes = [selected_node] if selected_node else []
+            self.context_menu
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    graph = NetworkGraph()
+    window = NetworkGraphWindow()
+    window.show()
     sys.exit(app.exec())
+
+

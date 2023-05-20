@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.misc import derivative
+import pandas as pd
 
 L = 15.06250253103967 # found with findL
 eps = 1/np.power(10, 6) 
@@ -24,13 +25,25 @@ def findL(a, b):
 
 
 def broken_lines_method(left_boundary: float, right_boundary: float) -> float:
+    xn = []
+    po = []
+    thing = []
+    lx = []
+    rx = []
+    pn = []
+
     x0 = 1/(2*L) * (function(left_boundary) - function(right_boundary) + L*(left_boundary + right_boundary))
     p = 1/2 * (function(left_boundary) + function(right_boundary) + L*(left_boundary-right_boundary))
 
     delta = 1/(2*L)*(function(x0) - p)
     while 2*L*delta > eps:
+        xn.append(x0)
+        po.append(p)
+        thing.append(2*L*delta)
         x1 = x0 - delta
+        lx.append(x1)
         x2 = x0 + delta
+        rx.append(x2)
 
         if function(x1) < function(x2):
             x0 = x1
@@ -38,7 +51,17 @@ def broken_lines_method(left_boundary: float, right_boundary: float) -> float:
             x0 = x2
 
         p = (1/2)*(function(x0) + p)
+        pn.append(p)
         delta = 1/(2*L)*(function(x0) - p)
+
+    df = pd.DataFrame({'xn': xn,
+                   "p*n": po,
+                   '2*L*DELTA': thing,
+                   "x'n": lx,
+                   "x''n": rx,
+                   "pn": pn})
+    df.to_excel('/home/uncookie/Documents/university_projects/sem4/optimization-methods/homework_2/broken_lines.xlsx', index=True)
+
 
     return x0
 
@@ -59,12 +82,28 @@ def dxdxphi(x):
 
 
 def newton_raphson_method():
+    xn = []
+    dxfoo = []
+    dxdxfoo = []
+    alpha = []
+
     x = 10
     a = 1
     while (phi(x) > eps):
+        xn.append(x)
+        dxfoo.append(dxphi(x))
+        dxdxfoo.append(dxdxphi(x))
         p = -dxphi(x)/dxdxphi(x)
         while (phi(x + a*p) > phi(x) + delta*a*p*dxphi(x)): a /= 2
+        alpha.append(a)
         x = x + a*p 
+
+    df = pd.DataFrame({'xn': xn,
+                   "f'": dxfoo,
+                   'f''': dxdxfoo,
+                   'a': alpha})
+    df.to_excel('/home/uncookie/Documents/university_projects/sem4/optimization-methods/homework_2/newton.xlsx', index=True)
+
     return x
 
 
@@ -72,7 +111,7 @@ def main():
     a = -20
     b = 10
 
-    x = newton_raphson_method()
+    x = broken_lines_method(a, b)
     y = phi(x)
 
     print(f'x = {x}, y = {y}')

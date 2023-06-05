@@ -87,9 +87,9 @@ def newton_raphson_method():
     dxdxfoo = []
     alpha = []
 
-    x = 10
+    x = 6
     a = 1
-    while (phi(x) > eps):
+    while (dxphi(x) > eps):
         xn.append(x)
         dxfoo.append(dxphi(x))
         dxdxfoo.append(dxdxphi(x))
@@ -111,7 +111,7 @@ def main():
     a = -20
     b = 10
 
-    x = broken_lines_method(a, b)
+    x = newton_raphson_method()
     y = phi(x)
 
     print(f'x = {x}, y = {y}')

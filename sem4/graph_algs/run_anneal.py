@@ -8,6 +8,7 @@ from GUIs.sim_anneal_interface.interface import Ui_MainWindow
 import numpy as np
 from Algs.all_algs import SimAnneal, network_graph
 import networkx as nx
+from optional import find_unique_number
 
 class MplCanvas(FigureCanvasQTAgg):
     def __init__(self, parent=None, width=5, height=4, dpi=100):
@@ -19,10 +20,14 @@ class MplCanvas(FigureCanvasQTAgg):
  
 class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
+    initial_tour = True
+    weights = None
+    best_tour = 1000
+
     def __init__(self, *args, obj=None, **kwargs):
         super(MainWindow, self).__init__(*args, **kwargs)
         self.setupUi(self)
-        self.setWindowTitle('simAnneal')
+        self.setWindowTitle('SimAnneal')
 
         self.setFocusPolicy(Qt.FocusPolicy.ClickFocus)
 
@@ -32,109 +37,143 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.verticalLayout_2.addWidget(self.toolbar1)
         self.verticalLayout_2.addWidget(self.canvas1)
 
-        # Create an empty graph
-        self.graph = nx.DiGraph()
+        self.G = nx.complete_graph(5)
+        self.pos = nx.spring_layout(self.G)
 
-        # Add initial nodes
-        initial_nodes = [
-            (1, "Node 1", 0, 0),
-            (2, "Node 2", 1, 1),
-            (3, "Node 3", 2, 0)
-        ]
+        self.initialize_graph()
+        self.update_graph()
 
-        for node in initial_nodes:
-            node_id, node_label, x, y = node
-            self.graph.add_node(node_id, label=node_label, x=x, y=y)
-
-        initial_edges = [
-            (1, 2,),
-            (2, 3),
-            (3, 1)
-        ]
-        for edge in initial_edges:
-            source, target = edge
-            weight = np.sqrt((self.graph.nodes[target]['x'] - self.graph.nodes[source]['x']) ** 2 + (self.graph.nodes[target]['y'] - self.graph.nodes[source]['y']) ** 2)
-            self.graph.add_edge(source, target, weight=weight)
+        self.start_button.clicked.connect(self.run)
 
         self.canvas1.mpl_connect('button_press_event', self.add_node)
-        self.canvas1.mpl_connect('button_press_event', self.add_edge)
-        self.canvas1.mpl_connect('button_press_event', self.delete_edge)
         self.canvas1.mpl_connect('button_press_event', self.delete_node)
 
-        # Store the selected nodes for adding edges
-        self.selected_nodes = []
+        self.canvas1.draw()
 
-        # Display the graph
-        self.draw_graph()
+    def initialize_graph(self):
+        for node1, position1 in self.pos.items():
+            for node2, position2 in self.pos.items():
+                if node1 != node2:
+                    distance = np.linalg.norm(np.array(position1) - np.array(position2))
+                    self.G.add_edge(node1, node2, weight=np.round(distance, 3))
+
 
     def add_node(self, event):
-        if event.button == 1:  # Left mouse button
+        if event.button == 1 and event.inaxes is not None:  # Triggered by left mouse button
             x, y = event.xdata, event.ydata
-            node_id = len(self.graph.nodes) + 1
-            node_label = f"Node {node_id}"
-            self.graph.add_node(node_id, label=node_label, x=x, y=y)
-            self.draw_graph()
+            list_of_nodes = list(self.G.nodes)
+            if not list_of_nodes:
+                node = 0
+            else: 
+                node = max(list_of_nodes) + 1
+                node = find_unique_number(np.arange(node + 1), list_of_nodes)
+            self.G.add_node(node)
+            self.G.add_edges_from([(node, n) for n in self.G.nodes() if n != node])  # Exclude self-loop
+            self.pos[node] = (x, y)
 
-    def add_edge(self, event):
-        if event.button == 3:  # Right mouse button
-            selected_node = None
-            for node, data in self.graph.nodes.items():
-                x, y = data['x'], data['y']
-                if abs(event.xdata - x) < 0.05 and abs(event.ydata - y) < 0.05:
-                    selected_node = node
-                    break
-            if selected_node is not None:
-                if selected_node not in self.selected_nodes:
-                    self.selected_nodes.append(selected_node)
-                if len(self.selected_nodes) == 2:
-                    source, target = self.selected_nodes
-                    weight = np.sqrt((self.graph.nodes[target]['x'] - self.graph.nodes[source]['x']) ** 2 + (self.graph.nodes[target]['y'] - self.graph.nodes[source]['y']) ** 2)
-                    self.graph.add_edge(source, target, weight=weight)
-                    self.selected_nodes.clear()
-                    self.draw_graph()
+            # Connect new node with all existing nodes and assign edge weight as distance
+            for n, position in self.pos.items():
+                if n != node:
+                    distance = np.linalg.norm(np.array(position) - np.array((x, y)))
+                    self.G.add_edge(node, n, weight=np.round(distance, 3))
 
-    def delete_edge(self, event):
-        if event.button == 2:  # Middle mouse button
-            selected_edge = None
-            min_distance = float('inf')
-            for edge in self.graph.edges:
-                source = edge[0]
-                target = edge[1]
-                x1, y1 = self.graph.nodes[source]['x'], self.graph.nodes[source]['y']
-                x2, y2 = self.graph.nodes[target]['x'], self.graph.nodes[target]['y']
-                distance = (
-                    (event.xdata - x1) ** 2 + (event.ydata - y1) ** 2 +
-                    (event.xdata - x2) ** 2 + (event.ydata - y2) ** 2
-                )
-                if distance < min_distance:
-                    selected_edge = edge
-                    min_distance = distance
-            if selected_edge is not None:
-                self.graph.remove_edge(*selected_edge)
-                self.draw_graph()
+            self.update_graph()
+
 
     def delete_node(self, event):
-        if event.button == 2:  # Middle mouse button
-            selected_node = None
-            min_distance = float('inf')
-            for node, data in self.graph.nodes.items():
-                x, y = data['x'], data['y']
-                distance = (event.xdata - x) ** 2 + (event.ydata - y) ** 2
-                if distance < min_distance:
-                    selected_node = node
-                    min_distance = distance
-            if selected_node is not None:
-                self.graph.remove_node(selected_node)
-                self.draw_graph()
+        if event.button == 3 and event.inaxes is not None:  # Triggered by right mouse button
+            x, y = event.xdata, event.ydata
+            min_dist = float('inf')
+            delete_node = None
+            for node, position in self.pos.items():
+                dist = ((position[0] - x) ** 2 + (position[1] - y) ** 2) ** 0.5
+                if dist < min_dist:
+                    min_dist = dist
+                    delete_node = node
 
+            if delete_node is not None:
+                del self.pos[delete_node]
+                self.G.remove_node(delete_node)
+                self.update_graph()
 
-    def draw_graph(self):
-        pos = {node: (data['x'], data['y']) for node, data in self.graph.nodes.items()}
-        nx.draw(self.graph, pos, ax=self.ax, with_labels=True, node_color='lightblue')
-        nx.draw_networkx_edges(self.graph, pos, edge_color='gray')
-        edge_labels = {edge: round(weight, 3) for edge, weight in nx.get_edge_attributes(self.graph, 'weight').items()}
-        nx.draw_networkx_edge_labels(self.graph, pos, edge_labels=edge_labels, ax=self.ax)
+    def update_graph(self):
+        self.ax.cla()
+        nx.draw(self.G, self.pos, ax=self.ax, with_labels=True, node_color='lightblue', node_size=800, font_size=12, font_weight='bold')
+        edge_labels = nx.get_edge_attributes(self.G, 'weight')
+        nx.draw_networkx_edge_labels(self.G, self.pos, ax=self.ax, edge_labels=edge_labels)
         self.canvas1.draw()
+
+    
+    def run(self):
+        for i in range(self.iter_spin_box.value()):
+            if self.weights == None:
+                n = max(list(self.G.nodes())) + 1
+                self.adj_mat = np.ones((n, n)) + 10
+                for edge, weight in nx.get_edge_attributes(self.G, 'weight').items():
+                    self.adj_mat[edge[0], edge[1]] = weight
+                    self.adj_mat[edge[1], edge[0]] = weight
+
+                self.rows_to_keep = np.any(self.adj_mat != 11, axis=1)
+                self.cols_to_keep = np.any(self.adj_mat != 11, axis=0)
+
+                matrix_for_best_route = np.copy(self.adj_mat)
+                self.adj_mat = self.adj_mat[self.rows_to_keep][:, self.cols_to_keep]
+                self.weights = nx.get_edge_attributes(self.G, 'weight').keys()
+
+                self.obj = network_graph(matrix_for_best_route)
+
+            if self.initial_tour:
+                self.ax.cla()
+                self.alg = SimAnneal(self.adj_mat, float(self.temp_line_edit.text()), float(self.gamma_line_edit.text()))
+                self.tour = self.alg.get_init_tour()
+                if type(self.tour) == str:
+                    self.info_textedit.setText('Тур отсутствует')
+                else:
+                    new_graph = self.G.copy()
+
+                    new_graph.clear_edges()
+                    num_false_values = len(self.rows_to_keep) - np.count_nonzero(self.rows_to_keep)
+                    first_false_index = np.argmax(~self.rows_to_keep)
+                    for move in self.tour:
+                        if move[0] >= first_false_index and num_false_values != 0: move[0] = move[0] + num_false_values
+                        if move[1] >= first_false_index and num_false_values != 0: move[1] = move[1] + num_false_values
+                        new_graph.add_edge(move[0], move[1])
+
+                    pos = self.pos
+                    nx.draw(new_graph, pos, ax=self.ax, with_labels=True, node_color='lightblue')
+                    nx.draw_networkx_edges(new_graph, pos, edge_color='gray')
+                    self.canvas1.draw()
+
+                    if self.obj.get_distance(self.tour) < self.best_tour: self.best_tour = self.obj.get_distance(self.tour)
+                    self.info_textedit.setText(f'This tour distance = {self.obj.get_distance(self.tour)}\nBest tour distance = {self.best_tour}')
+                    self.initial_tour = False
+
+            else:
+                self.ax.cla()
+                new_tour = self.alg.change_direction(self.tour)
+                new_tour = self.alg.alghorithm_step(self.tour, new_tour)
+                self.tour = new_tour
+
+                if type(self.tour) == str:
+                    self.info_textedit.setText('Тур отсутствует')
+                else:
+                    new_graph = self.G.copy()
+
+                    new_graph.clear_edges()
+                    num_false_values = len(self.rows_to_keep) - np.count_nonzero(self.rows_to_keep)
+                    first_false_index = np.argmax(~self.rows_to_keep)
+                    for move in self.tour:
+                        if move[0] >= first_false_index and num_false_values != 0: move[0] = move[0] + num_false_values
+                        if move[1] >= first_false_index and num_false_values != 0: move[1] = move[1] + num_false_values
+                        new_graph.add_edge(move[0], move[1])
+
+                    pos = self.pos
+                    nx.draw(new_graph, pos, ax=self.ax, with_labels=True, node_color='lightblue')
+                    nx.draw_networkx_edges(new_graph, pos, edge_color='gray')
+                    self.canvas1.draw()
+
+                    if self.obj.get_distance(self.tour) < self.best_tour: self.best_tour = self.obj.get_distance(self.tour)
+                    self.info_textedit.setText(f'This tour distance = {self.obj.get_distance(self.tour)}\nBest tour distance = {self.best_tour}')
 
 
 

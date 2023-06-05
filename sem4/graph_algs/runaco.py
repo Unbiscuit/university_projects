@@ -4,9 +4,9 @@ from PyQt6 import QtWidgets
 from PyQt6.QtCore import Qt
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg, NavigationToolbar2QT
-from GUIs.nvms_interface.interface import Ui_MainWindow
+from GUIs.aco_interface.interface import Ui_MainWindow
 import numpy as np
-from Algs.all_algs import NVM, network_graph
+from Algs.all_algs import ACO_TSP, network_graph
 import networkx as nx
 from optional import find_unique_number
 
@@ -18,7 +18,11 @@ class MplCanvas(FigureCanvasQTAgg):
         self.ax = self.figure.add_subplot(111)
         self.setFocusPolicy(Qt.FocusPolicy.ClickFocus)
 
+ 
 class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
+
+    best_tour = 1000
+    init_tour = True
 
     def __init__(self, *args, obj=None, **kwargs):
         super(MainWindow, self).__init__(*args, **kwargs)
@@ -33,20 +37,13 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.verticalLayout_2.addWidget(self.toolbar1)
         self.verticalLayout_2.addWidget(self.canvas1)
 
-        self.canvas_output = MplCanvas(self, width=8, height=8, dpi=80)
-        self.ax_output = self.canvas_output.ax
-        self.ax_output.axis('off')
-        self.toolbar_output = NavigationToolbar2QT(self.canvas_output, self)
-        self.verticalLayout.addWidget(self.toolbar_output)
-        self.verticalLayout.addWidget(self.canvas_output)
-
         self.G = nx.complete_graph(5)
         self.pos = nx.spring_layout(self.G)
 
         self.initialize_graph()
         self.update_graph()
 
-        self.do_alg_button.clicked.connect(self.do_nvm)
+        self.start_button.clicked.connect(self.do_aco)
 
         self.canvas1.mpl_connect('button_press_event', self.add_node)
         self.canvas1.mpl_connect('button_press_event', self.delete_node)
@@ -74,6 +71,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             self.G.add_node(node)
             self.G.add_edges_from([(node, n) for n in self.G.nodes() if n != node])  # Exclude self-loop
             self.pos[node] = (x, y)
+
             # Connect new node with all existing nodes and assign edge weight as distance
             for n, position in self.pos.items():
                 if n != node:
@@ -107,41 +105,57 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.canvas1.draw()
 
 
-    def do_nvm(self):
-        n = max(list(self.G.nodes())) + 1
-        adj_mat = np.ones((n, n)) + 10
-        for edge, weight in nx.get_edge_attributes(self.G, 'weight').items():
-            adj_mat[edge[0], edge[1]] = weight
-            adj_mat[edge[1], edge[0]] = weight
+    def do_aco(self):
+        if self.init_tour:
+            n = max(list(self.G.nodes())) + 1
+            adj_mat = np.ones((n, n)) + 10
+            for edge, weight in nx.get_edge_attributes(self.G, 'weight').items():
+                adj_mat[edge[0], edge[1]] = weight
+                adj_mat[edge[1], edge[0]] = weight
 
-        rows_to_keep = np.any(adj_mat != 11, axis=1)
-        cols_to_keep = np.any(adj_mat != 11, axis=0)
+            self.rows_to_keep = np.any(adj_mat != 11, axis=1)
+            self.cols_to_keep = np.any(adj_mat != 11, axis=0)
+            self.matrix_for_best_route = np.copy(adj_mat)
+            adj_mat = adj_mat[self.rows_to_keep][:, self.cols_to_keep]
 
-        matrix_for_best_route = np.copy(adj_mat)
-        adj_mat = adj_mat[rows_to_keep][:, cols_to_keep]
+            self.alg = ACO_TSP(np.copy(adj_mat), int(self.population_line_edit.text()), int(self.pher_line_edit.text()), 
+                        int(self.distance_line_edit.text()), float(self.cond_line_edit.text()), int(self.optimal_solution_line_edit.text()))
+            self.init_tour = False
+        
+        for i in range(self.iter_spin_box.value()):
 
-        alg = NVM(adj_mat=np.copy(adj_mat))
-        tour = alg.gamilton_tour_with_nvm()
-        if type(tour) == str:
-            self.lineEdit.setText('Тур отсутствует')
-        else:
-            new_graph = self.G.copy()
+            tours = self.alg.update_swarm()
+            obj = network_graph(self.matrix_for_best_route)
 
-            new_graph.clear_edges()
-            num_false_values = len(rows_to_keep) - np.count_nonzero(rows_to_keep)
-            first_false_index = np.argmax(~rows_to_keep)
-            for move in tour:
-                if move[0] >= first_false_index and num_false_values != 0: move[0] = move[0] + num_false_values
-                if move[1] >= first_false_index and num_false_values != 0: move[1] = move[1] + num_false_values
-                new_graph.add_edge(move[0], move[1])
+            this_round_best_distance = 1000
+            tour = None
 
-            self.ax_output.cla()
-            nx.draw(new_graph, pos=self.pos, ax=self.ax_output, with_labels=True, node_color='lightblue')
-            nx.draw_networkx_edges(new_graph, pos=self.pos, edge_color='gray')
-            self.canvas_output.draw()
+            for variant in tours:
+                current_distance = obj.get_distance(variant)
+                if current_distance < this_round_best_distance:
+                    this_round_best_distance = current_distance
+                    tour = variant
 
-            obj = network_graph(matrix_for_best_route)
-            self.lineEdit.setText(f'Distance = {obj.get_distance(tour)}')
+            if type(tour) == str:
+                self.info_textedit.setText('Тур отсутствует')
+            else:
+                new_graph = self.G.copy()
+
+                new_graph.clear_edges()
+                num_false_values = len(self.rows_to_keep) - np.count_nonzero(self.rows_to_keep)
+                first_false_index = np.argmax(~self.rows_to_keep)
+                for move in tour:
+                    if move[0] >= first_false_index and num_false_values != 0: move[0] = move[0] + num_false_values
+                    if move[1] >= first_false_index and num_false_values != 0: move[1] = move[1] + num_false_values
+                    new_graph.add_edge(move[0], move[1])
+
+                self.ax.cla()
+                nx.draw(new_graph, pos=self.pos, ax=self.ax, with_labels=True, node_color='lightblue')
+                nx.draw_networkx_edges(new_graph, pos=self.pos, edge_color='gray')
+                self.canvas1.draw()
+
+                if obj.get_distance(tour) < self.best_tour: self.best_tour = this_round_best_distance
+                self.info_textedit.setText(f'This tour distance = {this_round_best_distance}\nBest tour distance = {self.best_tour}')
 
 
 def main():

@@ -22,7 +22,7 @@
         <item>
          <widget class="QLabel" name="label">
           <property name="text">
-           <string>temp</string>
+           <string>Коэффициент важности феромонов</string>
           </property>
          </widget>
         </item>
@@ -39,10 +39,10 @@
           </property>
          </spacer>
         </item>
-        <item>
-         <widget class="QLineEdit" name="temp_line_edit">
+        <item alignment="Qt::AlignRight">
+         <widget class="QLineEdit" name="pher_line_edit">
           <property name="text">
-           <string>30</string>
+           <string>1</string>
           </property>
          </widget>
         </item>
@@ -53,7 +53,7 @@
         <item>
          <widget class="QLabel" name="label_2">
           <property name="text">
-           <string>gamma</string>
+           <string>Коэффициент значимости расстояния</string>
           </property>
          </widget>
         </item>
@@ -70,10 +70,112 @@
           </property>
          </spacer>
         </item>
-        <item>
-         <widget class="QLineEdit" name="gamma_line_edit">
+        <item alignment="Qt::AlignRight">
+         <widget class="QLineEdit" name="distance_line_edit">
           <property name="text">
-           <string>0.99</string>
+           <string>2</string>
+          </property>
+          <property name="alignment">
+           <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <layout class="QHBoxLayout" name="horizontalLayout_4">
+        <item>
+         <widget class="QLabel" name="label_3">
+          <property name="text">
+           <string>Скорость испарения феромонов</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <spacer name="horizontalSpacer_4">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>40</width>
+            <height>20</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+        <item alignment="Qt::AlignRight">
+         <widget class="QLineEdit" name="cond_line_edit">
+          <property name="text">
+           <string>0.1</string>
+          </property>
+          <property name="alignment">
+           <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <layout class="QHBoxLayout" name="horizontalLayout_5">
+        <item>
+         <widget class="QLabel" name="label_4">
+          <property name="text">
+           <string>Цена оптимального решения</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <spacer name="horizontalSpacer_5">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>40</width>
+            <height>20</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+        <item alignment="Qt::AlignRight">
+         <widget class="QLineEdit" name="optimal_solution_line_edit">
+          <property name="text">
+           <string>1</string>
+          </property>
+          <property name="alignment">
+           <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <layout class="QHBoxLayout" name="horizontalLayout_6">
+        <item>
+         <widget class="QLabel" name="label_5">
+          <property name="text">
+           <string>Разме популяции</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <spacer name="horizontalSpacer_6">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>40</width>
+            <height>20</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+        <item alignment="Qt::AlignRight">
+         <widget class="QLineEdit" name="population_line_edit">
+          <property name="text">
+           <string>10</string>
           </property>
           <property name="alignment">
            <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>

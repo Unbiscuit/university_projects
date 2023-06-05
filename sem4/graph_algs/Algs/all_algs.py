@@ -24,8 +24,13 @@ class NVM(network_graph):
         node = first_node or 0
         while node not in visited:
             current_row = self.adj_mat[node]
-            min_ind = first_dir or np.argmin(current_row)
-            if min_ind in visited and np.sum(current_row[:min_ind:]) % 11 != 0:
+            
+            if first_dir == None:
+                min_ind = np.argmin(current_row)
+            else:
+                min_ind = first_dir
+
+            if min_ind in visited:
                 current_row[min_ind] = 100
             else:
                 visited.append(node)
@@ -65,7 +70,7 @@ class SimAnneal(network_graph):
         while in_process:
             node = random.randint(0, np.shape(self.adj_mat)[0]- 1)
             current_row = self.adj_mat[node]
-            existing_directions = [[node, i] for i, dir in enumerate(current_row) if dir <= 1]
+            existing_directions = [[node, i] for i, dir in enumerate(current_row) if dir < 11]
             if len(existing_directions) > 1:
                 checked_ind = random.randint(0, len(existing_directions) - 1)
                 checked = existing_directions[checked_ind]
@@ -134,7 +139,6 @@ class ACO_TSP(network_graph):
     def update_swarm(self):
         current_solutions = []
         prob_matrix = self.get_probability()
-        print(prob_matrix)
         for i in range(self.pop_size):
             visited = []
             gamilton_tour = []
